@@ -24,27 +24,3 @@ ping (Handle, Target, Timeout) ->
 	    T2 = now(),
 	    timer:now_diff(T1, T2)
     end.
-
-parse_message (Message) ->
-    case binary_to_list(Message) of
-	[ $: | Tail ] -> %% got : we have a prefix
-	    [ Prefix, Command | Rest ] = string:tokens(Tail, " "),
-	    case parse_prefix(Prefix) of
-		{Nick, User, Host} -> From = {user, Nick, User, Host};
-		Host               -> From = {host, Host}
-	    end,
-	    Params = lists:takewhile(fun (X) -> not (params_end(X)) end, Rest),
-	    {From, Command, Params};
-	M ->
-	    M
-    end.
-
-parse_prefix (Str) ->
-    Str.
-
-params_end (":") ->
-    true;
-params_end (":\r\n") ->
-    true;
-params_end (_) ->
-    false.
