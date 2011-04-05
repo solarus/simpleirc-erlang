@@ -5,7 +5,18 @@
 	  port ,
 	  nick ,
 	  pass ,
-	  ping_queue=dict:new()} ).
+	  ping_queue=dict:new() } ).
+
+-record(irc_message,
+	{ header ,
+	  command ,
+	  params ,
+	  trailing }).
+
+-record(prefix,
+	{ nick = nil ,
+	  user = nil ,
+	  host = nil } ).
 
 -define(ERROR,	 1).
 -define(WARNING, 2).
