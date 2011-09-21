@@ -8,9 +8,6 @@ connect (Module, Host, Port, Name, Pass, Options) ->
 connect (Module, ServerName, Host, Port, Name, Pass, Options) ->
     simpirc_client:start(Module, ServerName, Host, Port, Name, Pass, Options).
 
-%% ping (Handle, Target) ->
-%%     ping(Handle, Target, 5000).
-
 ping (Handle, Target, Timeout) ->
     Ref = make_ref(),
     Pid = self(),

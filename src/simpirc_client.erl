@@ -210,11 +210,6 @@ parse_prefix (Prefix) ->
 	    end
     end.
 
-%% parse_message (<<$:, Rest1/binary>>) ->
-%%     {Prefix, Rest2} = parse_prefix(Rest1),
-%%     {Command, Rest3} = parse_command(Rest2),
-%% todo: parse messages for real
-
 
 %% IRC commands
 
