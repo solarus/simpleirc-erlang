@@ -25,11 +25,11 @@ ping (Handle, Target, Timeout) ->
 	    {error, Reason};
 	{Ref, ok} ->
 	    T2 = now(),
+	    timer:now_diff(T1, T2)
+    end.
 
 privmsg (Handle, Target, Message) ->
     gen_server:call(Handle, {privmsg, Target, Message}).
 
 join (Handle, Channel) ->
     gen_server:call(Handle, {join, Channel}).
-	    timer:now_diff(T1, T2)
-    end.
