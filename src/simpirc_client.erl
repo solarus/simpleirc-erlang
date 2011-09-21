@@ -145,39 +145,45 @@ parse_message (<<"PONG ", R/binary>>) ->
 	{match, [_, {Start1, Len1}, _, {Start2, Len2}]} ->
 	    {pong, string:substr(From, Start1+1, Len1),
 	           string:substr(From, Start2+1, Len2)}
-    end.
+    end;
 
 %% this is the real parse_message code which should be used:
-
 %% <message> ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
-%% parse_message ([ $: | Message ]) ->
-%%     Regex = "([^ ]+) ([a-zA-Z]+|[0-9]{3}) ([^:]*) :([^\\n\\r]*)\\n\\r",
-%%     Options = [{capture, all_but_first, list}],
-%%     case re:run(Message, Regex, Options) of
-%% 	{match, [ Prefix, Command, Params, Trailing ]} ->
-%% 	    Header = parse_prefix(Prefix),
-%% 	    Params2 = string:tokens(Params, " "),
-%% 	    #irc_message{ header = Header ,
-%% 			  command = Command ,
-%% 			  params = Params2 ,
-%% 			  trailing = Trailing };
-%% 	A ->
-%% 	    simpirc_logger:log(?WARNING, "No parse for message: ~p - ~p", [Message, A])
-%%     end.
+parse_message (<<R/binary>>) ->
+    Message = binary_to_list(R),
+    Regex = ":([^ ]+) ([a-zA-Z]+|[0-9]{3}) (.*[^:])( :([^\\n\\r]*))?\\r\\n",
+    Options = [{capture, all_but_first, list}],
+    case re:run(Message, Regex, Options) of
+        {match, [ Prefix, Command, Params ]} ->
+            Header = parse_prefix(Prefix),
+	    Params2 = string:tokens(Params, " "),
+	    #irc_message{ header = Header ,
+			  command = Command ,
+			  params = Params2 };
+	{match, [ Prefix, Command, Params, Trailing ]} ->
+	    Header = parse_prefix(Prefix),
+	    Params2 = string:tokens(Params, " "),
+	    #irc_message{ header = Header ,
+			  command = Command ,
+			  params = Params2 ,
+			  trailing = Trailing };
+	A ->
+	    simpirc_logger:log(?WARNING, "No parse for message: ~p - ~p", [Message, A])
+    end.
 
-%% %% <prefix> ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
-%% parse_prefix (Prefix) ->
-%%     case string:tokens(Prefix, "!") of
-%% 	[ Nick ] ->
-%% 	    #prefix{ nick = Nick };
-%% 	[ Nick , Rest ] ->
-%% 	    case string:tokens(Rest, "@") of
-%% 		[ User, Host ] ->
-%% 		    #prefix{ nick = Nick, user = User, host = Host };
-%% 		[ Host ] ->
-%% 		    #prefix{ nick = Nick, host = Host }
-%% 	    end
-%%     end.
+%% <prefix> ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
+parse_prefix (Prefix) ->
+    case string:tokens(Prefix, "!") of
+	[ Nick ] ->
+	    #prefix{ nick = Nick };
+	[ Nick , Rest ] ->
+	    case string:tokens(Rest, "@") of
+		[ User, Host ] ->
+		    #prefix{ nick = Nick, user = User, host = Host };
+		[ Host ] ->
+		    #prefix{ nick = Nick, host = Host }
+	    end
+    end.
 
 %% parse_message (<<$:, Rest1/binary>>) ->
 %%     {Prefix, Rest2} = parse_prefix(Rest1),
