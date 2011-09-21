@@ -1,8 +1,6 @@
 -module(simpleirc).
 -compile([export_all]).
 
-test () ->
-    connect("laptop.roflmf", 7000, "bott", nil, [ssl]).
 
 connect (Module, Host, Port, Name, Pass, Options) ->
     simpirc_client:start(Module, Host, Port, Name, Pass, Options).

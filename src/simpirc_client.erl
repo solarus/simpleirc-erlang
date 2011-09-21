@@ -249,7 +249,7 @@ command (Socket, ServMod, List=[[_|_]|_]) ->
     command (Socket, ServMod, lists:concat(List));
 
 command (Socket, ServMod, Command) ->
-    simpirc_logger:log(?DEBUG, ">> ~p", [Command]),
+    simpirc_logger:log(?DEBUG, ">> ~s", [Command]),
     ServMod:send(Socket, io_lib:format("~s~s", [Command, "\r\n"])).
 
 join (Socket, ServMod, Channels) ->
