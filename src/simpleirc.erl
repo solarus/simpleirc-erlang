@@ -4,8 +4,11 @@
 test () ->
     connect("laptop.roflmf", 7000, "bott", nil, [ssl]).
 
-connect (Host, Port, Name, Pass, Options) ->
-    simpirc_client:start(Host, Port, Name, Pass, Options).
+connect (Module, Host, Port, Name, Pass, Options) ->
+    simpirc_client:start(Module, Host, Port, Name, Pass, Options).
+
+connect (Module, ServerName, Host, Port, Name, Pass, Options) ->
+    simpirc_client:start(Module, ServerName, Host, Port, Name, Pass, Options).
 
 %% ping (Handle, Target) ->
 %%     ping(Handle, Target, 5000).
