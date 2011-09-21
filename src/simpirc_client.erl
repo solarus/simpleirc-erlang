@@ -60,33 +60,40 @@ handle_call ({ping, Target}, From,
     ping(Socket, ServMod, Target),
     {noreply, {Socket, State#server_state{ping_queue=dict:append(Target, From, Queue)}}};
 
+handle_call ({privmsg, Target, Message}, _From,
+	     {Socket, State=#server_state{serv_mod=ServMod}}) ->
+    privmsg(Socket, ServMod, Target, Message),
+    {reply, ok, {Socket, State}};
+
 handle_call ({kill, Reason}, _From,
 	     {Socket, State=#server_state{serv_mod=_ServMod}}) ->
     {stop, {killed, Reason}, ok, {Socket, State}}.
 
 handle_info ({ServMod, Socket, Data},
-	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue}}) ->
+	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, client_module=Module}}) ->
     case parse_message(Data) of
 	{ping, Target} ->
-	    simpirc_logger:log(?DEBUG, "<< \"PING ~s\"", [Target]),
-	    pong(Socket, ServMod, Target),
-	    {noreply, {Socket, State}};
+            handle_ping (Socket, ServMod, Target),
+            {noreply, {Socket, State}};
 	{pong, From, Forward} ->
-	    case Forward of
-		nil -> ok;
-		Forw -> pong(Socket, ServMod, Forw)
-	    end,
-	    case dict:find(From, Queue) of
-		{ok, Val} ->
-		    gen_server:reply(Val, {pong, self(), From}),
-		    NewQueue = dict:erase(From, Queue),
-		    {noreply, {Socket, State#server_state{ping_queue=NewQueue}}};
-		error ->
-		    {noreply, {Socket, State}}
-	    end;
-	A ->
-	    simpirc_logger:log(?WARNING, "Unrecognized command: ~s", [A]),
-	    {noreply, {Socket, State}}
+            NewQueue = handle_pong (Socket, ServMod, From, Forward, Queue),
+            {noreply, {Socket, State#server_state{ping_queue=NewQueue}}};
+        #irc_message{header=Header, command=Command, params=Params, trailing=_Trailing} ->
+            case Command of
+                "PRIVMSG" ->
+                    Module:privmsg(Header, tl(string:join(tl(Params), " ")));
+                "JOIN" ->
+                    Module:join(Header);
+                "PART" ->
+                    Module:part(Header);
+                "INVITE" ->
+                    Module:invite(Header, Params);
+                "NOTICE" ->
+                    Module:notice(Header, Params);
+                A ->
+                    simpirc_logger:log(?WARNING, "Unrecognized command: ~p", [A])
+            end,
+            {noreply, {Socket, State}}
     end;
 
 handle_info ({ssl_closed, Socket}, {Socket, State}) ->
@@ -112,12 +119,30 @@ terminate ({killed, Reason}, {Socket, #server_state{serv_mod=ServMod}}) ->
 terminate (_, {Socket, #server_state{serv_mod=ServMod}}) ->
     ServMod:close(Socket).
 
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% private functions
 
-%% General
+%% Handle functions
+
+handle_ping (Socket, ServMod, Target) ->
+    simpirc_logger:log(?DEBUG, "<< \"PING ~s\"", [Target]),
+    pong(Socket, ServMod, Target).
+
+handle_pong (Socket, ServMod, From, Forward, Queue) ->
+    case Forward of
+        nil -> ok;
+        Forw -> pong(Socket, ServMod, Forw)
+    end,
+    case dict:find(From, Queue) of
+        {ok, Val} ->
+            gen_server:reply(Val, {pong, self(), From}),
+            dict:erase(From, Queue);
+        error ->
+            Queue
+    end.
+
+%% General functions
 
 parse_options ([], State) ->
     State;
