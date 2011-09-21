@@ -8,33 +8,42 @@
 %% gen_server exports
 -export([init/1, handle_call/3, handle_info/2, terminate/2]).
 
-%% simpleirc exports
--export([start/5, start/6, start_link/5, start_link/6]).
+-export([behaviour_info/1]).
 
+%% simpleirc exports
+-export([start/6, start/7, start_link/6, start_link/7]).
+
+
+
+%% API
+
+behaviour_info(callbacks) ->
+    [{privmsg,2}, {ping, 1}, {join, 1}, {part, 1}, {invite, 2}, {notice, 2}];
+behaviour_info(_Other) ->
+    undefined.
 
 
 %% interface
 
-start (Host, Port, Nick, Pass, Options) ->
-    gen_server:start(?MODULE, [Host, Port, Nick, Pass, Options], []).
+start (Module, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start (ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start(ServerName, ?MODULE, [Host, Port, Nick, Pass, Options], []).
+start (Module, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start_link (Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(?MODULE, [Host, Port, Nick, Pass, Options], []).
+start_link (Module, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start_link (ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(ServerName, ?MODULE, [Host, Port, Nick, Pass, Options], []).
-
+start_link (Module, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
 
 %% gen_server exports
 
-init ([Host, Port, Nick, Pass, Options]) ->
+init ([Module, Host, Port, Nick, Pass, Options]) ->
     State = parse_options(Options, #server_state{}),
     {ok, Socket} = connect(Host, Port, Nick, Pass, State),
-    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass}}}.
+    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, client_module=Module}}}.
 
 handle_call ({join, Channel}, _From,
 	     {Socket, State=#server_state{serv_mod=ServMod, channels=Channels}}) ->
