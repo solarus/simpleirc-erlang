@@ -229,3 +229,6 @@ ping (Socket, ServMod, Target) ->
 
 pong (Socket, ServMod, Target) ->
     command(Socket, ServMod, ["PONG ", Target]).
+
+privmsg (Socket, ServMod, Target, Message) ->
+    command(Socket, ServMod, ["PRIVMSG ", Target, " :", Message]).
