@@ -41,6 +41,15 @@ start_link (Module, ServerName, Host, Port, Nick, Pass, Options) ->
 %% gen_server exports
 
 init ([Module, Host, Port, Nick, Pass, Options]) ->
+    %% Compile regex for parse_message
+    Prefix = "([^ ]+)",
+    Command = "([^ ]+)",
+    Params = " ([^:]*)",
+    Trailing = "(:([^\\0\\r\\n]*))?",
+    IrcMessage = "^(:" ++ Prefix ++ " )?" ++ Command ++ Params ++ Trailing ++ "\\r\\n",
+    {ok, Regex} = re:compile(IrcMessage),
+    put(irc_message_regex, Regex),
+
     State = parse_options(Options, #server_state{}),
     {ok, Socket} = connect(Host, Port, Nick, Pass, State),
     {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, client_module=Module}}}.
@@ -78,10 +87,10 @@ handle_info ({ServMod, Socket, Data},
 	{pong, From, Forward} ->
             NewQueue = handle_pong (Socket, ServMod, From, Forward, Queue),
             {noreply, {Socket, State#server_state{ping_queue=NewQueue}}};
-        #irc_message{header=Header, command=Command, params=Params, trailing=_Trailing} ->
+        #irc_message{header=Header, command=Command, params=Params, trailing=Trailing} ->
             case Command of
                 "PRIVMSG" ->
-                    Module:privmsg(Header, tl(string:join(tl(Params), " ")));
+                    Module:privmsg(Header, Trailing);
                 "JOIN" ->
                     Module:join(Header);
                 "PART" ->
@@ -175,25 +184,25 @@ parse_message (<<"PONG ", R/binary>>) ->
 %% this is the real parse_message code which should be used:
 %% <message> ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
 parse_message (<<R/binary>>) ->
-    Message = binary_to_list(R),
-    Regex = ":([^ ]+) ([a-zA-Z]+|[0-9]{3}) (.*[^:])( :([^\\n\\r]*))?\\r\\n",
+    R2 = binary_to_list(R),
     Options = [{capture, all_but_first, list}],
-    case re:run(Message, Regex, Options) of
-        {match, [ Prefix, Command, Params ]} ->
-            Header = parse_prefix(Prefix),
-	    Params2 = string:tokens(Params, " "),
-	    #irc_message{ header = Header ,
-			  command = Command ,
-			  params = Params2 };
-	{match, [ Prefix, Command, Params, Trailing ]} ->
-	    Header = parse_prefix(Prefix),
-	    Params2 = string:tokens(Params, " "),
-	    #irc_message{ header = Header ,
-			  command = Command ,
-			  params = Params2 ,
-			  trailing = Trailing };
-	A ->
-	    simpirc_logger:log(?WARNING, "No parse for message: ~p - ~p", [Message, A])
+    Regex = get(irc_message_regex),
+    case re:run(R2, Regex, Options) of
+        {match, [_, Prefix, Command, Params]} ->
+            From = parse_prefix(Prefix),
+            Params2 = string:tokens(Params, " "),
+            #irc_message{ header = From ,
+                          command = Command ,
+                          params = Params2 };
+        {match, [_, Prefix, Command, Params, _, Trailing]} ->
+            From = parse_prefix(Prefix),
+            Params2 = string:tokens(Params, " "),
+            #irc_message{ header = From ,
+                          command = Command ,
+                          params = Params2 ,
+                          trailing = Trailing};
+        A ->
+            simpirc_logger:log(?WARNING, "No parse for message: ~p - ~p", [R2, A])
     end.
 
 %% <prefix> ::= <servername> | <nick> [ '!' <user> ] [ '@' <host> ]
