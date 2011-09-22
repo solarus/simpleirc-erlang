@@ -1,37 +1,32 @@
 -module(simplebot).
--compile([export_all]).
--behaviour(simpirc_client).
-
+-export([test/0, loop/2]).
 -include("simpirc_common.hrl").
 
 test () ->
-    Handle = simpleirc:connect(simplebot, {local, simpirc}, "127.0.0.1", 7000, "bott", nil, [ssl]).
+    Ref = make_ref(),
+    {ok, Handle} = simpleirc:connect({self(), Ref}, {local, simpirc}, "127.0.0.1", 7000, "bott", nil, [ssl]),
+    loop(Handle, Ref).
 
-%% simpleirc exports
+loop (Handle, Ref) ->
+    receive
+        {Ref, A} ->
+            case A of
+                {privmsg, Prefix, Message} ->
+                    privmsg(Handle, Prefix, Message);
+                _ ->
+                    io:format("Got: ~p~n", [A])
+            end;
+        _ ->
+            ok
+    end,
+    simplebot:loop(Handle, Ref).
 
-privmsg (Header=#prefix{nick=Nick}, Message) ->
-    io:format("yeh ~s ~p ~n", [Nick, Message]),
+privmsg (Handle, Header=#prefix{nick=Nick}, Message) ->
     Reply = case Message of
                 "!id " ++ Rest ->
                     Rest;
-                    _ -> "nah"
+                "!hurr" ++ _ ->
+                    "burr";
+                _ -> "nah"
             end,
-    Handle = self(),
-    spawn(fun () ->
-                  simpleirc:privmsg(Handle, Nick, Reply)
-          end).
-
-ping (Header) ->
-    ok.
-
-join (Header) ->
-    ok.
-
-part (Header) ->
-    ok.
-
-invite (Header, Params) ->
-    ok.
-
-notice (Header, Params) ->
-    ok.
+    simpleirc:privmsg(Handle, Nick, Reply).
