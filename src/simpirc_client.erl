@@ -8,39 +8,28 @@
 %% gen_server exports
 -export([init/1, handle_call/3, handle_info/2, terminate/2]).
 
--export([behaviour_info/1]).
-
 %% simpleirc exports
 -export([start/6, start/7, start_link/6, start_link/7]).
-
-
-
-%% API
-
-behaviour_info(callbacks) ->
-    [{privmsg,2}, {ping, 1}, {join, 1}, {part, 1}, {invite, 2}, {notice, 2}];
-behaviour_info(_Other) ->
-    undefined.
 
 
 %% interface
 
-start (Module, Host, Port, Nick, Pass, Options) ->
-    gen_server:start(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
+start (Callback, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
 
-start (Module, ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
+start (Callback, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(ServerName, ?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
 
-start_link (Module, Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
+start_link (Callback, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
 
-start_link (Module, ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
+start_link (Callback, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(ServerName, ?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
 
 
 %% gen_server exports
 
-init ([Module, Host, Port, Nick, Pass, Options]) ->
+init ([Callback, Host, Port, Nick, Pass, Options]) ->
     %% Compile regex for parse_message
     Prefix = "([^ ]+)",
     Command = "([^ ]+)",
@@ -52,7 +41,7 @@ init ([Module, Host, Port, Nick, Pass, Options]) ->
 
     State = parse_options(Options, #server_state{}),
     {ok, Socket} = connect(Host, Port, Nick, Pass, State),
-    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, client_module=Module}}}.
+    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, callback=Callback}}}.
 
 handle_call ({join, Channel}, _From,
 	     {Socket, State=#server_state{serv_mod=ServMod, channels=Channels}}) ->
@@ -79,7 +68,7 @@ handle_call ({kill, Reason}, _From,
     {stop, {killed, Reason}, ok, {Socket, State}}.
 
 handle_info ({ServMod, Socket, Data},
-	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, client_module=Module}}) ->
+	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, callback=Callback}}) ->
     case parse_message(Data) of
 	{ping, Target} ->
             handle_ping (Socket, ServMod, Target),
@@ -90,15 +79,16 @@ handle_info ({ServMod, Socket, Data},
         #irc_message{header=Header, command=Command, params=Params, trailing=Trailing} ->
             case Command of
                 "PRIVMSG" ->
-                    Module:privmsg(Header, Trailing);
+                    handle_command(Callback, {privmsg, Header, Trailing});
                 "JOIN" ->
-                    Module:join(Header);
+                    handle_command(Callback, {join, Header});
                 "PART" ->
-                    Module:part(Header);
+                    handle_command(Callback, {part, Header});
                 "INVITE" ->
-                    Module:invite(Header, Params);
+                    [ _ | [ Channel | _ ] ] = Params,
+                    handle_command(Callback, {invite, Header, Channel});
                 "NOTICE" ->
-                    Module:notice(Header, Params);
+                    handle_command(Callback, {notice, Header, Trailing});
                 A ->
                     simpirc_logger:log(?WARNING, "Unrecognized command: ~p", [A])
             end,
@@ -150,6 +140,9 @@ handle_pong (Socket, ServMod, From, Forward, Queue) ->
         error ->
             Queue
     end.
+
+handle_command ({Callback, Ref}, Command) ->
+    Callback ! {Ref, Command}.
 
 %% General functions
 
