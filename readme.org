@@ -1,0 +1,16 @@
+#STARTUP: indent
+
+* Todo
+  - Documentation!
+  - Reimplement the callback module behaviour but this time with
+    gen_event:add_handler and gen_event:notify to make sure there will
+    no deadlocks.
+  - Answer on ctcp ping.
+  - Move simplebot to a examples directory and redo the makefile etc
+    to reflect this.
+  - What happends when the connection to a irc server is lost?
+  - Write tests.
+  - Implement dcc chat. If this chat can be encrypted and if there is
+    a way to verify that code is safe then implement a feature to
+    update the callback module code via dcc chat.
+
