@@ -1,32 +1,32 @@
 -module(simplebot).
--export([test/0, loop/2]).
+-export([test/0, privmsg/2, notice/2, invite/2, join/2]).
 -include("simpirc_common.hrl").
 
 test () ->
-    Ref = make_ref(),
-    {ok, Handle} = simpleirc:connect({self(), Ref}, {local, simpirc}, "127.0.0.1", 7000, "bott", nil, [ssl]),
-    loop(Handle, Ref).
+    {ok, _Handle} = simpleirc:start(?MODULE, {local, simpirc}, "127.0.0.1", 7000, "bott", nil, [ssl]).
 
-loop (Handle, Ref) ->
-    receive
-        {Ref, A} ->
-            case A of
-                {privmsg, Prefix, Message} ->
-                    privmsg(Handle, Prefix, Message);
-                _ ->
-                    io:format("Got: ~p~n", [A])
-            end;
-        _ ->
-            ok
-    end,
-    simplebot:loop(Handle, Ref).
-
-privmsg (Handle, Header=#prefix{nick=Nick}, Message) ->
-    Reply = case Message of
+privmsg (Handle, Msg=#irc_message{header=Header, params=Params, trailing=Trailing}) ->
+    Reply = case Trailing of
                 "!id " ++ Rest ->
                     Rest;
                 "!hurr" ++ _ ->
                     "burr";
                 _ -> "nah"
             end,
-    simpleirc:privmsg(Handle, Nick, Reply).
+    To = case simpleirc:is_priv_message(Msg) of
+             true ->
+                 #prefix{nick = Nick} = Header,
+                 Nick;
+             _ ->
+                 hd(Params)
+         end,
+    simpleirc:privmsg(Handle, To, Reply).
+
+notice (_Handle, _Msg=#irc_message{}) ->
+    ok.
+
+invite (Handle, _Msg=#irc_message{trailing=Channel}) ->
+    simpleirc:join(Handle, Channel).
+
+join (_Handle, _Msg=#irc_message{}) ->
+    ok.
