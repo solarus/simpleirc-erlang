@@ -2,6 +2,8 @@
 -export([test/0, privmsg/2, notice/2, invite/2, join/2]).
 -include("simpirc_common.hrl").
 
+-behaviour(simpleirc).
+
 test () ->
     {ok, _Handle} = simpleirc:start(?MODULE, {local, simpirc}, "127.0.0.1", 7000, "bott", nil, [ssl]).
 
