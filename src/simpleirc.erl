@@ -28,3 +28,16 @@ privmsg (Handle, Target, Message) ->
 
 join (Handle, Channel) ->
     gen_server:call(Handle, {join, Channel}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Utility functions
+
+is_priv_message (_Msg=#irc_message{params=Params}) ->
+    FirstChar = hd(hd(Params)),
+    not(elem (FirstChar, [$#, $&])).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Private export
+
+elem (X, Xs) ->
+    lists:any((fun (Y) -> X == Y end), Xs).
