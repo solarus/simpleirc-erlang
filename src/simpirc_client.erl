@@ -14,22 +14,22 @@
 
 %% interface
 
-start (Callback, Host, Port, Nick, Pass, Options) ->
-    gen_server:start(?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
+start (Module, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start (Callback, ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start(ServerName, ?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
+start (Module, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start_link (Callback, Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
+start_link (Module, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
-start_link (Callback, ServerName, Host, Port, Nick, Pass, Options) ->
-    gen_server:start_link(ServerName, ?MODULE, [Callback, Host, Port, Nick, Pass, Options], []).
+start_link (Module, ServerName, Host, Port, Nick, Pass, Options) ->
+    gen_server:start_link(ServerName, ?MODULE, [Module, Host, Port, Nick, Pass, Options], []).
 
 
 %% gen_server exports
 
-init ([Callback, Host, Port, Nick, Pass, Options]) ->
+init ([CallbackMod, Host, Port, Nick, Pass, Options]) ->
     %% Compile regex for parse_message
     Prefix = "([^ ]+)",
     Command = "([^ ]+)",
@@ -38,10 +38,13 @@ init ([Callback, Host, Port, Nick, Pass, Options]) ->
     IrcMessage = "^(:" ++ Prefix ++ " )?" ++ Command ++ Params ++ Trailing ++ "\\r\\n",
     {ok, Regex} = re:compile(IrcMessage),
     put(irc_message_regex, Regex),
-
+    
+    {ok, Mgr} = gen_event:start_link(),
+    gen_event:add_handler(Mgr, event_handler, [self(), CallbackMod]),
+    
     State = parse_options(Options, #server_state{}),
     {ok, Socket} = connect(Host, Port, Nick, Pass, State),
-    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, callback=Callback}}}.
+    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, eventmgr=Mgr}}}.
 
 handle_call ({join, Channel}, _From,
 	     {Socket, State=#server_state{serv_mod=ServMod, channels=Channels}}) ->
@@ -68,7 +71,7 @@ handle_call ({kill, Reason}, _From,
     {stop, {killed, Reason}, ok, {Socket, State}}.
 
 handle_info ({ServMod, Socket, Data},
-	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, callback=Callback}}) ->
+	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, eventmgr=Mgr}}) ->
     case parse_message(Data) of
 	{ping, Target} ->
             handle_ping (Socket, ServMod, Target),
@@ -76,19 +79,18 @@ handle_info ({ServMod, Socket, Data},
 	{pong, From, Forward} ->
             NewQueue = handle_pong (Socket, ServMod, From, Forward, Queue),
             {noreply, {Socket, State#server_state{ping_queue=NewQueue}}};
-        #irc_message{header=Header, command=Command, params=Params, trailing=Trailing} ->
+        Msg=#irc_message{header=Header, command=Command, params=Params, trailing=Trailing} ->
             case Command of
                 "PRIVMSG" ->
-                    handle_command(Callback, {privmsg, Header, Trailing});
+                    handle_command(Mgr, {privmsg, Msg});
                 "JOIN" ->
-                    handle_command(Callback, {join, Header});
+                    handle_command(Mgr, {join, Msg});
                 "PART" ->
-                    handle_command(Callback, {part, Header});
+                    handle_command(Mgr, {part, Msg});
                 "INVITE" ->
-                    [ _ | [ Channel | _ ] ] = Params,
-                    handle_command(Callback, {invite, Header, Channel});
+                    handle_command(Mgr, {invite, Msg});
                 "NOTICE" ->
-                    handle_command(Callback, {notice, Header, Trailing});
+                    handle_command(Mgr, {notice, Msg});
                 A ->
                     simpirc_logger:log(?WARNING, "Unrecognized command: ~p", [A])
             end,
@@ -141,8 +143,8 @@ handle_pong (Socket, ServMod, From, Forward, Queue) ->
             Queue
     end.
 
-handle_command ({Callback, Ref}, Command) ->
-    Callback ! {Ref, Command}.
+handle_command (Mgr, Command) ->
+    gen_event:notify(Mgr, Command).
 
 %% General functions
 

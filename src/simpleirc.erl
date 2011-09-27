@@ -1,11 +1,25 @@
 -module(simpleirc).
--compile([export_all]).
 
+-include("simpirc_common.hrl").
 
-connect (Module, Host, Port, Name, Pass, Options) ->
+%% Behaviour export
+-export([behaviour_info/1]).
+
+%% API exports
+-export([start/6, start/7, ping/3, privmsg/3, join/2, is_priv_message/1]).
+
+behaviour_info (callbacks) ->
+    [{privmsg, 2}, {notice, 2}, {invite, 2}, {join, 2}];
+behaviour_info (_) ->
+    undefined.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% API functions
+
+start (Module, Host, Port, Name, Pass, Options) ->
     simpirc_client:start(Module, Host, Port, Name, Pass, Options).
 
-connect (Module, ServerName, Host, Port, Name, Pass, Options) ->
+start (Module, ServerName, Host, Port, Name, Pass, Options) ->
     simpirc_client:start(Module, ServerName, Host, Port, Name, Pass, Options).
 
 ping (Handle, Target, Timeout) ->

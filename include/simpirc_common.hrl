@@ -6,7 +6,7 @@
 	  nick ,
 	  pass ,
 	  ping_queue=dict:new() ,
-          callback } ).
+          eventmgr } ).
 
 -record(irc_message,
 	{ header ,
