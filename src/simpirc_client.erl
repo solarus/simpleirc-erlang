@@ -3,7 +3,8 @@
 
 -include("simpirc_common.hrl").
 
--define(RECONNECT_TIME, 1000).
+-define(RECONNECT_TIME, 2000).
+-define(RECONNECT_ATTEMPTS, 3).
 
 %% gen_server exports
 -export([init/1, handle_call/3, handle_info/2, terminate/2]).
@@ -43,9 +44,13 @@ init ([CallbackMod, Host, Port, Nick, Pass, Options]) ->
     gen_event:add_handler(Mgr, event_handler, [self(), CallbackMod]),
     
     State = parse_options(Options, #server_state{}),
-    {ok, Socket} = connect(Host, Port, Nick, Pass, State),
-    {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, eventmgr=Mgr}}}.
-
+    case connect(Host, Port, Nick, Pass, State) of
+        {ok, Socket} ->
+            {ok, {Socket, State#server_state{host=Host, port=Port, nick=Nick, pass=Pass, eventmgr=Mgr}}};
+        {error, Reason} ->
+            {stop, Reason}
+    end.
+    
 handle_call ({join, Channel}, _From,
 	     {Socket, State=#server_state{serv_mod=ServMod, channels=Channels}}) ->
     case lists:member(Channel, Channels) of
@@ -218,21 +223,39 @@ parse_prefix (Prefix) ->
 %% IRC commands
 
 connect (Host, Port, Nick, Pass, #server_state{serv_mod=ServMod}) ->
-    {ok, Socket} = ServMod:connect(Host, Port, 
-				   [binary,
-				    {packet, line},
-				    {nodelay, true},
-				    {keepalive, true},
-				    {active, true},
-				    {reuseaddr, true}]),
-    case Pass of
-	nil -> ok;
-	_   ->
-	    command(Socket, ServMod, lists:concat(["PASS ", Pass]))
-    end,
-    command(Socket, ServMod, lists:concat(["NICK ", Nick])),
-    command(Socket, ServMod, lists:concat(["USER ", Nick, " dummy dummy ", Nick])),
-    {ok, Socket}.
+    case try_connect(Host, Port, ServMod, nil, ?RECONNECT_ATTEMPTS) of
+        {error, Reason} ->
+            {error, Reason};
+        {ok, Socket} ->
+            case Pass of
+                nil -> ok;
+                _   ->
+                    command(Socket, ServMod, lists:concat(["PASS ", Pass]))
+            end,
+            command(Socket, ServMod, lists:concat(["NICK ", Nick])),
+            command(Socket, ServMod, lists:concat(["USER ", Nick, " dummy dummy ", Nick])),
+            {ok, Socket}
+    end.
+
+try_connect (_Host, _Port, _ServMod, Reason, 0) ->
+    {error, Reason};
+
+try_connect (Host, Port, ServMod, _Reason, N) ->
+    simpirc_logger:log(?DEBUG, ">> Connecting to ~s:~p", [Host, Port]),
+    Result = ServMod:connect(Host, Port, 
+                             [binary,
+                              {packet, line},
+                              {nodelay, true},
+                              {keepalive, true},
+                              {active, true},
+                              {reuseaddr, true}]),
+    case Result of
+        {ok, Socket} ->
+            {ok, Socket};
+        {error, Reason} ->
+            simpirc_logger:log(?DEBUG, ">> Connection failed: ~p", [Reason]),
+            try_connect (Host, Port, ServMod, Reason, N-1)
+    end.
 
 handle_reconnect (Socket, State=#server_state{serv_mod=ServMod,
 					      host=Host,
