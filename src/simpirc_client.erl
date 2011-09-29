@@ -87,7 +87,7 @@ handle_info ({ServMod, Socket, Data},
 	{pong, From, Forward} ->
             NewQueue = handle_pong (Socket, ServMod, From, Forward, Queue),
             {noreply, {Socket, State#server_state{ping_queue=NewQueue}}};
-        Msg=#irc_message{header=Header, command=Command, params=Params, trailing=Trailing} ->
+        Msg=#irc_message{command=Command} ->
             case Command of
                 "PRIVMSG" ->
                     handle_command(Mgr, {privmsg, Msg});
@@ -187,7 +187,6 @@ parse_message (<<"PONG ", R/binary>>) ->
 	           string:substr(From, Start2+1, Len2)}
     end;
 
-%% this is the real parse_message code which should be used:
 %% <message> ::= [':' <prefix> <SPACE> ] <command> <params> <crlf>
 parse_message (<<R/binary>>) ->
     R2 = binary_to_list(R),
