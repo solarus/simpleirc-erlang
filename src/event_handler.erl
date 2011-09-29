@@ -2,6 +2,8 @@
 
 -include("simpirc_common.hrl").
 
+-behaviour(gen_event).
+
 -export([init/1, handle_event/2]). %%, handle_call/2, handle_info/2, terminate/2]).
 
 init ([Parent, Callback]) ->
@@ -20,10 +22,4 @@ handle_event (Event, State={Parent, Callback}) ->
         {privmsg, Msg} ->
             Callback:privmsg(Parent, Msg)
     end,
-    {ok, State};
-
-handle_event (A, B) ->
-    io:format("A = ~p, B = ~p~n", [A,B]).
-
-
-
+    {ok, State}.
