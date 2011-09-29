@@ -1,1 +1,0 @@
-../include/simpirc_common.hrl
