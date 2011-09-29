@@ -7,7 +7,7 @@
 -define(RECONNECT_ATTEMPTS, 3).
 
 %% gen_server exports
--export([init/1, handle_call/3, handle_info/2, terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% simpleirc exports
 -export([start/6, start/7, start_link/6, start_link/7]).
@@ -75,6 +75,9 @@ handle_call ({kill, Reason}, _From,
 	     {Socket, State=#server_state{serv_mod=_ServMod}}) ->
     {stop, {killed, Reason}, ok, {Socket, State}}.
 
+handle_cast (_Request, State) ->
+    {ok, State}.
+
 handle_info ({ServMod, Socket, Data},
 	     {Socket, State=#server_state{serv_mod=ServMod, ping_queue=Queue, eventmgr=Mgr}}) ->
     case parse_message(Data) of
@@ -124,6 +127,9 @@ terminate ({killed, Reason}, {Socket, #server_state{serv_mod=ServMod}}) ->
 
 terminate (_, {Socket, #server_state{serv_mod=ServMod}}) ->
     ServMod:close(Socket).
+
+code_change (_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
