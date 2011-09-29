@@ -1,11 +1,14 @@
-ERL=erl
+REBAR=./rebar
 APPFILE=simpleirc.app
 
 all: ebin/$(APPFILE)
-	$(ERL) -make 
+	$(REBAR) compile
 
 clean:
-	rm -f ebin/*.beam
+	$(REBAR) clean
+	rm -f ebin/erl_crash.dump
+	cd examples; \
+	make clean
 
 test:
 	cd examples; \
