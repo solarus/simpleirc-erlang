@@ -27,8 +27,8 @@ privmsg (Handle, Msg=#irc_message{header=Header, params=Params, trailing=Trailin
 notice (_Handle, _Msg=#irc_message{}) ->
     ok.
 
-invite (Handle, _Msg=#irc_message{trailing=Channel}) ->
-    simpleirc:join(Handle, Channel).
+invite (_Msg, _State) ->
+    join.
 
 join (_Handle, _Msg=#irc_message{}) ->
     ok.

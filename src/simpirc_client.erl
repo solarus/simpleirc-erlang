@@ -41,7 +41,8 @@ init ([CallbackMod, Host, Port, Nick, Pass, Options]) ->
     put(irc_message_regex, Regex),
     
     {ok, Mgr} = gen_event:start_link(),
-    gen_event:add_handler(Mgr, event_handler, [self(), CallbackMod]),
+    gen_event:add_sup_handler(Mgr, event_handler, [self(), CallbackMod]),
+    gen_event:add_sup_handler(Mgr, simpirc_channel_event, [self(), CallbackMod, []]),
     
     State = parse_options(Options, #server_state{}),
     case connect(Host, Port, Nick, Pass, State) of

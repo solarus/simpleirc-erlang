@@ -2,6 +2,7 @@
 
 * Todo
   - One gen_event for channels, one for ping etc...
+    - channels done
   - Documentation!
   - Answer on ctcp ping.
   - What happends when the connection to a irc server is lost?
@@ -9,4 +10,3 @@
   - Implement dcc chat. If this chat can be encrypted and if there is
     a way to verify that code is safe then implement a feature to
     update the callback module code via dcc chat.
-

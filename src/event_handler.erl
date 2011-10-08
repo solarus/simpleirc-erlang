@@ -15,11 +15,11 @@ handle_event (Event, State={Parent, Callback}) ->
             Callback:join(Parent, Msg);
         {part, Msg} ->
             Callback:part(Parent, Msg);
-        {invite, Msg} ->
-            Callback:invite(Parent, Msg);
         {notice, Msg} ->
             Callback:notice(Parent, Msg);
         {privmsg, Msg} ->
-            Callback:privmsg(Parent, Msg)
+            Callback:privmsg(Parent, Msg);
+        _ ->
+            ok
     end,
     {ok, State}.
