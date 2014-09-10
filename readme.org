@@ -1,5 +1,11 @@
 #STARTUP: indent
 
+An Erlang implementation of the `simpleirc' library found on Hackage:
+  - http://hackage.haskell.org/package/simpleirc
+
+See the examples folder for a very simple IRC-bot. Run the example by
+executing `make test'.
+
 * Todo
   - One gen_event for channels, one for ping etc...
     - channels done
