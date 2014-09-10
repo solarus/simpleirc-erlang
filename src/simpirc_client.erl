@@ -39,11 +39,11 @@ init ([CallbackMod, Host, Port, Nick, Pass, Options]) ->
     IrcMessage = "^(:" ++ Prefix ++ " )?" ++ Command ++ Params ++ Trailing ++ "\\r\\n",
     {ok, Regex} = re:compile(IrcMessage),
     put(irc_message_regex, Regex),
-    
+
     {ok, Mgr} = gen_event:start_link(),
     gen_event:add_sup_handler(Mgr, event_handler, [self(), CallbackMod]),
     gen_event:add_sup_handler(Mgr, simpirc_channel_event, [self(), CallbackMod, []]),
-    
+
     State = parse_options(Options, #server_state{}),
     case connect(Host, Port, Nick, Pass, State) of
         {ok, Socket} ->
@@ -51,7 +51,7 @@ init ([CallbackMod, Host, Port, Nick, Pass, Options]) ->
         {error, Reason} ->
             {stop, Reason}
     end.
-    
+
 handle_call ({join, Channel}, _From,
 	     {Socket, State=#server_state{serv_mod=ServMod, channels=Channels}}) ->
     case lists:member(Channel, Channels) of
@@ -248,7 +248,7 @@ try_connect (_Host, _Port, _ServMod, Reason, 0) ->
 
 try_connect (Host, Port, ServMod, _Reason, N) ->
     simpirc_logger:log(?DEBUG, ">> Connecting to ~s:~p", [Host, Port]),
-    Result = ServMod:connect(Host, Port, 
+    Result = ServMod:connect(Host, Port,
                              [binary,
                               {packet, line},
                               {nodelay, true},
